@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股 AI 分析站</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#090f1e; --bg2:#0f1829; --bg3:#162035; --bg4:#1c2840;
+  --border:rgba(255,255,255,0.06); --border2:rgba(255,255,255,0.12);
+  --text:#dde3ef; --text2:#7a8799; --text3:#3d4d61;
+  --blue:#3b82f6; --blue2:#60a5fa; --blue3:#93c5fd;
+  --green:#10b981; --green2:#34d399;
+  --red:#ef4444; --red2:#f87171;
+  --gold:#f59e0b; --gold2:#fcd34d;
+  --purple:#8b5cf6; --purple2:#a78bfa;
+  --teal:#14b8a6;
+  --r:12px; --rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6;overflow-x:hidden}
+
+/* scanline atmosphere */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+
+/* grid */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(59,130,246,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+header{position:sticky;top:0;z-index:200;background:rgba(9,15,30,0.94);backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);padding:0 28px;display:flex;align-items:center;gap:16px;height:58px}
+.logo{font-size:15px;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:9px}
+.logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:14px}
+.live-pill{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;background:rgba(16,185,129,0.12);color:var(--green2);border:1px solid rgba(16,185,129,0.25);padding:2px 9px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green2);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.htime{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-left:auto}
+
+.wrap{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:24px}
+
+/* Search */
+.search-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:22px 26px;margin-bottom:24px}
+.search-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.inp{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:9px 14px;outline:none;transition:border-color .2s;width:180px}
+.inp:focus{border-color:var(--blue)}
+.inp::placeholder{color:var(--text3)}
+.btn{padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s;font-family:'Noto Sans TC',sans-serif;display:flex;align-items:center;gap:6px}
+.btn-p{background:var(--blue);color:#fff}
+.btn-p:hover{background:var(--blue2);transform:translateY(-1px)}
+.btn-p:active{transform:none}
+.btn-s{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.btn-s:hover{color:var(--text);border-color:var(--border2)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{font-family:'DM Mono',monospace;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 11px;border-radius:20px;cursor:pointer;transition:all .15s}
+.chip:hover{border-color:var(--blue);color:var(--blue2)}
+
+/* Layout */
+.grid{display:grid;grid-template-columns:1fr 360px;gap:20px}
+@media(max-width:960px){.grid{grid-template-columns:1fr}}
+
+/* Card */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;position:relative;overflow:hidden}
+.card-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--purple))}
+.ct{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.ct::before{content:'';width:3px;height:11px;background:var(--blue);border-radius:2px}
+
+/* Stock display */
+.sname{font-size:24px;font-weight:700}
+.sticker{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);margin-left:8px}
+.price{font-family:'DM Mono',monospace;font-size:38px;font-weight:500}
+.price.up{color:var(--red2)} .price.dn{color:var(--green2)} .price.fl{color:var(--text)}
+.cbadge{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;padding:3px 10px;border-radius:20px}
+.cbadge.up{background:rgba(239,68,68,.12);color:var(--red2)}
+.cbadge.dn{background:rgba(16,185,129,.12);color:var(--green2)}
+.cbadge.fl{background:rgba(255,255,255,.06);color:var(--text2)}
+
+/* Metrics */
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:18px}
+.mbox{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:11px 13px}
+.mlbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.mval{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text)}
+.mval.up{color:var(--red2)} .mval.dn{color:var(--green2)}
+
+/* Chart */
+.chart-wrap{position:relative;height:200px;margin-bottom:18px}
+
+/* AI box */
+.aibox{background:linear-gradient(135deg,rgba(59,130,246,.06),rgba(139,92,246,.06));border:1px solid rgba(59,130,246,.18);border-radius:var(--r);padding:15px;margin-bottom:16px}
+.aihead{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.aiicon{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.ailabel{font-size:12px;font-weight:500;color:var(--blue2)}
+.aicontent{font-size:13px;line-height:1.75;color:var(--text2)}
+.aicontent strong{color:var(--text);font-weight:500}
+
+/* Streaming text */
+.stream-cursor::after{content:'▋';animation:blink .7s step-end infinite;color:var(--blue2);font-size:11px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Rating badges */
+.ratings{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.rbadge{font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;border:1px solid}
+.r-buy{background:rgba(16,185,129,.1);color:var(--green2);border-color:rgba(16,185,129,.3)}
+.r-strong{background:rgba(16,185,129,.18);color:#6ee7b7;border-color:rgba(16,185,129,.4)}
+.r-hold{background:rgba(245,158,11,.1);color:var(--gold2);border-color:rgba(245,158,11,.3)}
+.r-sell{background:rgba(239,68,68,.1);color:var(--red2);border-color:rgba(239,68,68,.3)}
+.r-watch{background:rgba(139,92,246,.1);color:var(--purple2);border-color:rgba(139,92,246,.3)}
+
+/* Strategy cards */
+.strat-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.strat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:13px 15px}
+.strat-card.recommended{border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.04)}
+.strat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.strat-name{font-size:13px;font-weight:500;color:var(--text)}
+.strat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.risk-bar{height:4px;background:var(--bg4);border-radius:2px;margin-top:8px;overflow:hidden}
+.risk-fill{height:100%;border-radius:2px;transition:width .6s}
+.strat-note{font-size:12px;color:var(--text2);margin-top:7px;line-height:1.6}
+
+/* Watchlist */
+.witem{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:var(--rs);background:var(--bg3);border:1px solid var(--border);cursor:pointer;transition:all .15s;margin-bottom:6px}
+.witem:last-child{margin-bottom:0}
+.witem:hover{border-color:var(--blue);background:rgba(59,130,246,.05)}
+.wleft{display:flex;flex-direction:column;gap:1px}
+.wticker{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--text)}
+.wname{font-size:11px;color:var(--text2)}
+.wright{text-align:right}
+.wprice{font-family:'DM Mono',monospace;font-size:13px;color:var(--text)}
+.wchg{font-family:'DM Mono',monospace;font-size:11px}
+.wchg.up{color:var(--red2)} .wchg.dn{color:var(--green2)} .wchg.fl{color:var(--text3)}
+.wchg.loading{color:var(--text3)}
+
+/* Tabs */
+.tabs{display:flex;gap:5px;margin-bottom:13px}
+.tab{font-size:12px;padding:4px 12px;border-radius:20px;cursor:pointer;color:var(--text2);transition:all .15s;border:1px solid transparent}
+.tab.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tab:not(.on):hover{color:var(--text);border-color:var(--border2)}
+
+/* Theme list */
+.theme-item{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.theme-item:last-child{border-bottom:none}
+.theme-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.theme-text{font-size:12px;color:var(--text2);line-height:1.6}
+.theme-text strong{color:var(--text);font-weight:500}
+
+/* States */
+.empty{text-align:center;padding:44px 20px;color:var(--text3)}
+.empty-icon{font-size:30px;opacity:.3;margin-bottom:10px}
+.errmsg{color:var(--red2);font-size:13px;padding:10px;background:rgba(239,68,68,.07);border-radius:var(--rs);border:1px solid rgba(239,68,68,.18)}
+.spin{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:rot .6s linear infinite;display:inline-block;flex-shrink:0}
+@keyframes rot{to{transform:rotate(360deg)}}
+.loading-row{display:flex;align-items:center;gap:9px;color:var(--text3);font-size:13px}
+hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+
+/* News */
+.nitem{padding:9px 0;border-bottom:1px solid var(--border)}
+.nitem:last-child{border-bottom:none}
+.ntitle{font-size:13px;color:var(--text);line-height:1.5}
+.nmeta{font-size:11px;color:var(--text3);margin-top:3px}
+
+@media(max-width:600px){.mgrid{grid-template-columns:repeat(2,1fr)}.price{font-size:28px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">台</div>
+    台股 AI 分析站
+  </div>
+  <div class="live-pill"><div class="live-dot"></div>AI LIVE</div>
+  <div class="htime" id="htime"></div>
+</header>
+
+<div class="wrap">
+
+  <div class="search-card">
+    <div class="search-row">
+      <div class="field">
+        <label>股票代號</label>
+        <input class="inp" id="tinput" type="text" placeholder="2330、2454..." maxlength="10">
+      </div>
+      <button class="btn btn-p" id="sbtn" onclick="doSearch()">
+        <span>✦</span> AI 分析
+      </button>
+      <button class="btn btn-s" onclick="refreshWatch()">↻ 更新行情</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">快速選股</div>
+    <div class="chips">
+      <span class="chip" onclick="qp('2330')">2330 台積電</span>
+      <span class="chip" onclick="qp('2454')">2454 聯發科</span>
+      <span class="chip" onclick="qp('2308')">2308 台達電</span>
+      <span class="chip" onclick="qp('2317')">2317 鴻海</span>
+      <span class="chip" onclick="qp('3711')">3711 日月光</span>
+      <span class="chip" onclick="qp('2382')">2382 廣達</span>
+      <span class="chip" onclick="qp('6669')">6669 緯穎</span>
+      <span class="chip" onclick="qp('3034')">3034 聯詠</span>
+      <span class="chip" onclick="qp('2368')">2368 金像電</span>
+      <span class="chip" onclick="qp('3324')">3324 雙鴻</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- Main Panel -->
+    <div id="main">
+      <div class="card">
+        <div class="card-line"></div>
+        <div id="display">
+          <div class="empty">
+            <div class="empty-icon">📊</div>
+            <div style="font-size:15px;color:var(--text2);margin-bottom:6px">輸入股票代號，AI 立即分析</div>
+            <div style="font-size:12px">支援所有上市上櫃股票・即時網路搜尋・Claude AI 深度解讀</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right sidebar -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <div class="card">
+        <div class="card-line"></div>
+        <div class="ct">市場行情</div>
+        <div class="tabs">
+          <div class="tab on" onclick="swTab('w',this)">自選股</div>
+          <div class="tab" onclick="swTab('s',this)">AI 族群</div>
+        </div>
+        <div id="wpanel"><div class="loading-row"><div class="spin"></div>載入中...</div></div>
+        <div id="spanel" style="display:none"><div class="loading-row"><div class="spin"></div>載入中...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-line"></div>
+        <div class="ct">本週市場主題</div>
+        <div id="themes">
+          <div class="theme-item"><div class="theme-dot" style="background:var(--blue)"></div><div class="theme-text"><strong>輝達 GTC 餘波</strong> — AI 伺服器板材、CCL/PCB 族群持續強勢，金像電、台燿漲停</div></div>
+          <div class="theme-item"><div class="theme-dot" style="background:var(--green)"></div><div class="theme-text"><strong>散熱 / 電源</strong> — 台達電突破歷史高點，雙鴻、奇鋐跟漲</div></div>
+          <div class="theme-item"><div class="theme-dot" style="background:var(--gold)"></div><div class="theme-text"><strong>記憶體</strong> — Micron 財報大爆發，南亞科、宜鼎、華邦電走升</div></div>
+          <div class="theme-item"><div class="theme-dot" style="background:var(--purple)"></div><div class="theme-text"><strong>台積電法說前佈局</strong> — 4/16 法說預期上調資本支出，$1,780~1,820 為買點</div></div>
+          <div class="theme-item"><div class="theme-dot" style="background:var(--teal)"></div><div class="theme-text"><strong>機器人概念</strong> — 上銀、台達電、東元因 GTC Humanoid 話題持續受關注</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────
+const PROXY = 'https://corsproxy.io/?';
+const YF_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+const YF_SUM = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary/';
+
+const WATCH = [
+  {s:'2330.TW',n:'台積電'},{s:'2454.TW',n:'聯發科'},
+  {s:'2308.TW',n:'台達電'},{s:'2317.TW',n:'鴻海'},
+  {s:'3711.TW',n:'日月光'},{s:'2382.TW',n:'廣達'},
+  {s:'6669.TW',n:'緯穎'},
+];
+const SECTOR = [
+  {s:'2368.TW',n:'金像電'},{s:'6274.TW',n:'台燿'},
+  {s:'3324.TW',n:'雙鴻'},{s:'5289.TW',n:'宜鼎'},
+  {s:'2059.TW',n:'川湖'},{s:'2408.TW',n:'南亞科'},
+  {s:'2303.TW',n:'聯電'},
+];
+
+let activeChart = null;
+let activeTicker = null;
+
+// ── Clock ─────────────────────────────────────────────────
+setInterval(()=>{
+  const n=new Date();
+  document.getElementById('htime').textContent=
+    n.toLocaleDateString('zh-TW')+' '+n.toLocaleTimeString('zh-TW',{hour12:false});
+},1000);
+
+// ── Helpers ───────────────────────────────────────────────
+const fp = v => v!=null ? v.toLocaleString('zh-TW',{minimumFractionDigits:1,maximumFractionDigits:1}) : '--';
+const fpct = v => v!=null ? (v>0?'+':'')+v.toFixed(2)+'%' : '--';
+const fbig = n => {
+  if(!n) return '--';
+  if(n>=1e12) return (n/1e12).toFixed(2)+'兆';
+  if(n>=1e8) return (n/1e8).toFixed(1)+'億';
+  if(n>=1e4) return (n/1e4).toFixed(0)+'萬';
+  return n.toFixed(0);
+};
+const cc = v => v>0?'up':v<0?'dn':'fl';
+
+async function yfc(sym){
+  try{
+    const u=`${PROXY}${encodeURIComponent(YF_CHART+sym+'?interval=1d&range=3mo')}`;
+    const r=await fetch(u); const d=await r.json();
+    const res=d.chart.result[0];
+    return {meta:res.meta, closes:res.indicators.quote[0].close, ts:res.timestamp};
+  }catch{return null}
+}
+async function yfs(sym){
+  try{
+    const m='summaryDetail,defaultKeyStatistics,financialData,assetProfile';
+    const u=`${PROXY}${encodeURIComponent(YF_SUM+sym+'?modules='+m)}`;
+    const r=await fetch(u); const d=await r.json();
+    return d.quoteSummary?.result?.[0]||null;
+  }catch{return null}
+}
+
+// ── Watchlist ─────────────────────────────────────────────
+async function renderList(items, elId){
+  const el=document.getElementById(elId);
+  const rows=await Promise.all(items.map(it=>yfc(it.s).then(d=>({...it,d}))));
+  el.innerHTML='';
+  for(const it of rows){
+    const m=it.d?.meta;
+    const price=m?.regularMarketPrice;
+    const prev=m?.previousClose||m?.chartPreviousClose;
+    const chg=price&&prev?(price-prev)/prev*100:null;
+    const cls=cc(chg);
+    const div=document.createElement('div');
+    div.className='witem';
+    div.onclick=()=>{document.getElementById('tinput').value=it.s.replace('.TW','');doSearch(it.s)};
+    div.innerHTML=`
+      <div class="wleft"><div class="wticker">${it.s.replace('.TW','')}</div><div class="wname">${it.n}</div></div>
+      <div class="wright">
+        <div class="wprice">${price?fp(price):'---'}</div>
+        <div class="wchg ${cls}">${chg!=null?fpct(chg):'--'}</div>
+      </div>`;
+    el.appendChild(div);
+  }
+}
+
+async function refreshWatch(){
+  document.getElementById('wpanel').innerHTML='<div class="loading-row"><div class="spin"></div>更新中...</div>';
+  document.getElementById('spanel').innerHTML='<div class="loading-row"><div class="spin"></div>更新中...</div>';
+  await renderList(WATCH,'wpanel');
+  await renderList(SECTOR,'spanel');
+}
+
+function swTab(tab,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('wpanel').style.display=tab==='w'?'':'none';
+  document.getElementById('spanel').style.display=tab==='s'?'':'none';
+}
+
+// ── Chart ─────────────────────────────────────────────────
+function drawChart(closes,ts){
+  const cv=document.getElementById('cv'); if(!cv) return;
+  if(activeChart){activeChart.destroy();activeChart=null;}
+  const labels=ts.map(t=>{const d=new Date(t*1000);return `${d.getMonth()+1}/${d.getDate()}`});
+  const vals=closes.map(c=>c??NaN);
+  const last=vals.filter(c=>!isNaN(c)).slice(-1)[0];
+  const first=vals.find(c=>!isNaN(c));
+  const isUp=last>=first;
+  const col=isUp?'#ef4444':'#10b981';
+  const fill=isUp?'rgba(239,68,68,0.08)':'rgba(16,185,129,0.08)';
+  activeChart=new Chart(cv,{
+    type:'line',
+    data:{labels,datasets:[{data:vals,borderColor:col,backgroundColor:fill,borderWidth:1.5,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${fp(c.parsed.y)}`}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#3d4d61',maxTicksLimit:6,font:{size:11}}},
+        y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#3d4d61',font:{size:11},callback:v=>fp(v)},position:'right'}
+      }
+    }
+  });
+}
+
+// ── AI Analysis (Claude API with web_search) ──────────────
+async function getAI(sym,name,price,chgPct,high52,low52,pe,mktCap){
+  const box=document.getElementById('aibox'); if(!box) return;
+  const content=document.getElementById('aicontent'); if(!content) return;
+  content.innerHTML='';
+  content.classList.add('stream-cursor');
+
+  const today=new Date().toLocaleDateString('zh-TW');
+  const prompt=`今天是 ${today}。請用繁體中文針對台股 ${name}（${sym.replace('.TW','')}）進行即時分析。
+
+現有數據：現價 ${price}元、今日漲跌 ${chgPct}、52週高點 ${high52}元、52週低點 ${low52}元、本益比 ${pe}、市值 ${mktCap}。
+
+請先用 web_search 搜尋「${name} ${sym.replace('.TW','')} 股票 最新消息 2026」以及「${name} 法人評級 目標價」，取得最新資訊後，提供：
+
+1. **現況評估**：一到兩句話說明目前股價走勢與基本面概況
+2. **近期催化劑**：最新利多或利空消息（來自搜尋結果）
+3. **操作建議**：短線買進價位或觀望理由，含具體數字
+4. **主要風險**：一個最關鍵的下行風險
+5. **評級**：末尾給出「強力買進 / 買進 / 持有 / 減碼 / 賣出」其中一個
+
+格式精簡，總字數約150字，不要加免責聲明。`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+
+    // Extract all text blocks
+    const fullText=(data.content||[])
+      .filter(b=>b.type==='text')
+      .map(b=>b.text)
+      .join('\n');
+
+    content.classList.remove('stream-cursor');
+
+    if(!fullText){
+      content.innerHTML='<div class="errmsg">AI 分析暫時無法載入，請稍後再試</div>';
+      return;
+    }
+
+    const fmt=fullText
+      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\n\n/g,'</p><p style="margin-top:8px">')
+      .replace(/\n/g,'<br>');
+    content.innerHTML=`<p>${fmt}</p>`;
+
+    // Rating badge
+    const ratingsEl=document.getElementById('ratings');
+    if(ratingsEl){
+      let html='';
+      if(fullText.includes('強力買進')) html='<span class="rbadge r-strong">⬆ 強力買進</span>';
+      else if(fullText.includes('買進')) html='<span class="rbadge r-buy">↑ 買進</span>';
+      else if(fullText.includes('持有')) html='<span class="rbadge r-hold">→ 持有</span>';
+      else if(fullText.includes('減碼')) html='<span class="rbadge r-sell">↓ 減碼</span>';
+      else if(fullText.includes('賣出')) html='<span class="rbadge r-sell">⬇ 賣出</span>';
+      else html='<span class="rbadge r-watch">◎ 觀察</span>';
+      ratingsEl.innerHTML=html;
+    }
+  }catch(e){
+    content.classList.remove('stream-cursor');
+    content.innerHTML='<div class="errmsg">連線失敗，請確認網路後重試</div>';
+  }
+}
+
+// ── Strategy cards (AI generated) ────────────────────────
+async function getStrategy(sym,name,price,chgPct){
+  const el=document.getElementById('stratbox'); if(!el) return;
+  el.innerHTML='<div class="loading-row"><div class="spin"></div>生成操作策略中...</div>';
+
+  const prompt=`針對台股 ${name}（${sym.replace('.TW','')}），現價 ${price}元，今日 ${chgPct}，用繁體中文簡短給出三種操作策略：
+
+1. 積極進場（高風險）
+2. 區間佈局（中風險）
+3. 長期定期定額（低風險）
+
+每種策略只需：名稱、進場價位、目標價、止損價、一句話說明。
+用 JSON 格式回答，不要任何其他文字：
+[{"name":"...","risk":"high","entry":"...","target":"...","stop":"...","note":"..."},...]`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const clean=raw.replace(/```json|```/g,'').trim();
+    const strats=JSON.parse(clean);
+
+    const riskColor={high:'#ef4444',mid:'#f59e0b',low:'#10b981'};
+    const riskW={high:'80%',mid:'45%',low:'20%'};
+    const riskLabel={high:'高風險',mid:'中風險',low:'低風險'};
+    const riskClass={high:'r-sell',mid:'r-hold',low:'r-buy'};
+
+    el.innerHTML=strats.map((s,i)=>`
+      <div class="strat-card${i===1?' recommended':''}">
+        <div class="strat-top">
+          <div>
+            <div class="strat-name">${s.name} ${i===1?'<span style="font-size:10px;color:var(--blue2);margin-left:6px">★ 建議</span>':''}</div>
+            <div class="strat-sub">進場 ${s.entry} · 目標 ${s.target} · 止損 ${s.stop}</div>
+          </div>
+          <span class="rbadge ${riskClass[s.risk]||'r-watch'}">${riskLabel[s.risk]||s.risk}</span>
+        </div>
+        <div class="risk-bar"><div class="risk-fill" style="width:${riskW[s.risk]||'50%'};background:${riskColor[s.risk]||'#8b5cf6'}"></div></div>
+        <div class="strat-note">${s.note}</div>
+      </div>`).join('');
+  }catch{
+    el.innerHTML='<div class="errmsg">策略生成失敗，請重試</div>';
+  }
+}
+
+// ── Main search ───────────────────────────────────────────
+async function doSearch(overSym){
+  const raw=overSym||document.getElementById('tinput').value.trim();
+  if(!raw) return;
+  let sym=raw.toUpperCase();
+  if(!sym.includes('.')) sym=sym+'.TW';
+  activeTicker=sym;
+
+  const btn=document.getElementById('sbtn');
+  btn.disabled=true; btn.innerHTML='<div class="spin"></div> 分析中';
+
+  document.getElementById('display').innerHTML=
+    '<div class="loading-row" style="padding:40px;justify-content:center"><div class="spin"></div> 抓取即時資料...</div>';
+
+  const [qd,sd]=await Promise.all([yfc(sym),yfs(sym)]);
+
+  btn.disabled=false; btn.innerHTML='<span>✦</span> AI 分析';
+
+  if(!qd){
+    document.getElementById('display').innerHTML=
+      `<div class="errmsg" style="margin:20px">找不到「${sym}」，請確認代號（例：2330）</div>`;
+    return;
+  }
+
+  const meta=qd.meta;
+  const price=meta.regularMarketPrice;
+  const prev=meta.previousClose||meta.chartPreviousClose;
+  const chg=price-prev;
+  const chgPct=(chg/prev)*100;
+  const cls=cc(chgPct);
+
+  const sum=sd?.summaryDetail||{};
+  const fd=sd?.financialData||{};
+  const ks=sd?.defaultKeyStatistics||{};
+  const ap=sd?.assetProfile||{};
+
+  const name=meta.longName||meta.shortName||sym;
+  const high52=sum.fiftyTwoWeekHigh?.raw;
+  const low52=sum.fiftyTwoWeekLow?.raw;
+  const pe=sum.trailingPE?.raw||sum.forwardPE?.raw;
+  const pb=sum.priceToBook?.raw;
+  const vol=meta.regularMarketVolume;
+  const mktCap=sum.marketCap?.raw||ks.marketCap?.raw;
+  const eps=ks.trailingEps?.raw;
+  const gm=fd.grossMargins?.raw;
+  const roe=fd.returnOnEquity?.raw;
+  const range=high52&&low52?Math.max(2,Math.min(98,(price-low52)/(high52-low52)*100)):50;
+
+  document.getElementById('display').innerHTML=`
+    <div style="margin-bottom:18px">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <div class="sname">${name}</div>
+        <div class="sticker">${sym}</div>
+        ${ap.sector?`<div style="font-size:11px;color:var(--text3)">${ap.sector}${ap.industry?' · '+ap.industry:''}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;flex-wrap:wrap">
+        <div class="price ${cls}">${fp(price)}</div>
+        <div class="cbadge ${cls}">${chg>=0?'+':''}${fp(chg)} (${fpct(chgPct)})</div>
+      </div>
+    </div>
+
+    <div class="mgrid">
+      <div class="mbox"><div class="mlbl">52週高</div><div class="mval">${high52?fp(high52):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">52週低</div><div class="mval">${low52?fp(low52):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">本益比</div><div class="mval">${pe?pe.toFixed(1):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">市值</div><div class="mval">${fbig(mktCap)}</div></div>
+      <div class="mbox"><div class="mlbl">成交量</div><div class="mval">${fbig(vol)}</div></div>
+      <div class="mbox"><div class="mlbl">EPS</div><div class="mval">${eps?eps.toFixed(2):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">毛利率</div><div class="mval">${gm?(gm*100).toFixed(1)+'%':'--'}</div></div>
+      <div class="mbox"><div class="mlbl">ROE</div><div class="mval">${roe?(roe*100).toFixed(1)+'%':'--'}</div></div>
+      <div class="mbox"><div class="mlbl">股價淨值比</div><div class="mval">${pb?pb.toFixed(2):'--'}</div></div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:5px">
+        <span>52W 低 ${low52?fp(low52):'--'}</span>
+        <span>目前位置 ${range.toFixed(0)}%</span>
+        <span>52W 高 ${high52?fp(high52):'--'}</span>
+      </div>
+      <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${range}%;background:${cls==='up'?'var(--red2)':'var(--green2)'};border-radius:2px;transition:width .6s ease"></div>
+      </div>
+    </div>
+
+    <div class="ct">近三個月走勢</div>
+    <div class="chart-wrap"><canvas id="cv"></canvas></div>
+
+    <div class="aibox">
+      <div class="aihead">
+        <div class="aiicon">✦</div>
+        <div class="ailabel">Claude AI 即時分析（含網路搜尋）</div>
+      </div>
+      <div class="aicontent" id="aicontent">
+        <div class="loading-row"><div class="spin"></div> 搜尋最新資訊並分析中<span style="color:var(--blue2);margin-left:4px">...</span></div>
+      </div>
+      <div class="ratings" id="ratings"></div>
+    </div>
+
+    <div class="ct" style="margin-top:4px">AI 操作策略建議</div>
+    <div id="stratbox" class="strat-grid"></div>
+
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px">
+      ⚠ 以上分析僅供參考，不構成投資建議，投資前請自行評估風險
+    </div>`;
+
+  drawChart(qd.closes, qd.ts);
+
+  // Run AI analyses in parallel
+  getAI(sym, name, fp(price), fpct(chgPct),
+    high52?fp(high52):'N/A', low52?fp(low52):'N/A',
+    pe?pe.toFixed(1):'N/A', fbig(mktCap));
+  getStrategy(sym, name, fp(price), fpct(chgPct));
+}
+
+function qp(s){
+  document.getElementById('tinput').value=s;
+  doSearch(s+'.TW');
+}
+
+document.getElementById('tinput').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
+
+// Init
+refreshWatch();
+// Auto-refresh during market hours
+setInterval(()=>{
+  const h=new Date().getHours();
+  if(h>=9&&h<14){
+    refreshWatch();
+    if(activeTicker) doSearch(activeTicker);
+  }
+},180000);
+</script>
+</body>
+</html>
