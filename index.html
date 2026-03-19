@@ -50,6 +50,7 @@ header{position:sticky;top:0;z-index:200;background:rgba(9,15,30,0.94);backdrop-
 .chips{display:flex;gap:7px;flex-wrap:wrap}
 .chip{font-family:'DM Mono',monospace;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 11px;border-radius:20px;cursor:pointer;transition:all .15s}
 .chip:hover{border-color:var(--blue);color:var(--blue2)}
+.chip.active{border-color:var(--blue);color:var(--blue2);background:rgba(59,130,246,.08)}
 
 .grid{display:grid;grid-template-columns:1fr 360px;gap:20px}
 @media(max-width:960px){.grid{grid-template-columns:1fr}}
@@ -125,11 +126,10 @@ header{position:sticky;top:0;z-index:200;background:rgba(9,15,30,0.94);backdrop-
 
 .empty{text-align:center;padding:44px 20px;color:var(--text3)}
 .empty-icon{font-size:30px;opacity:.3;margin-bottom:10px}
-.errmsg{color:var(--red2);font-size:13px;padding:10px 14px;background:rgba(239,68,68,.07);border-radius:var(--rs);border:1px solid rgba(239,68,68,.18)}
+.errmsg{color:var(--red2);font-size:13px;padding:10px 14px;background:rgba(239,68,68,.07);border-radius:var(--rs);border:1px solid rgba(239,68,68,.18);line-height:1.7}
 .spin{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:rot .6s linear infinite;display:inline-block;flex-shrink:0}
 @keyframes rot{to{transform:rotate(360deg)}}
 .lrow{display:flex;align-items:center;gap:9px;color:var(--text3);font-size:13px}
-hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 @media(max-width:600px){.mgrid{grid-template-columns:repeat(2,1fr)}.price{font-size:28px}}
 </style>
 </head>
@@ -194,7 +194,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <div class="card">
         <div class="card-line"></div>
         <div class="ct">本週市場主題</div>
-        <div id="themes">
+        <div>
           <div class="theme-item"><div class="theme-dot" style="background:var(--blue)"></div><div class="theme-text"><strong>輝達 GTC 餘波</strong> — CCL/PCB 族群持續強勢，金像電、台燿漲停</div></div>
           <div class="theme-item"><div class="theme-dot" style="background:var(--green)"></div><div class="theme-text"><strong>散熱 / 電源</strong> — 台達電突破歷史高點，雙鴻、奇鋐跟漲</div></div>
           <div class="theme-item"><div class="theme-dot" style="background:var(--gold)"></div><div class="theme-text"><strong>記憶體</strong> — Micron 財報大爆發，南亞科、宜鼎走升</div></div>
@@ -207,111 +207,78 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 </div>
 
 <script>
-// ── 股票名稱對照表 ─────────────────────────────────────
-const NAMES = {
-  '2330':'台積電','2317':'鴻海','2454':'聯發科','2308':'台達電',
-  '3711':'日月光投控','2382':'廣達','6669':'緯穎','3034':'聯詠',
-  '2303':'聯電','2368':'金像電','6274':'台燿','3324':'雙鴻',
-  '5289':'宜鼎','2059':'川湖','2408':'南亞科','2603':'長榮',
-  '2412':'中華電','2881':'富邦金','2882':'國泰金','2886':'兆豐金',
-  '2891':'中信金','1301':'台塑','1303':'南亞','2002':'中鋼',
-  '2357':'華碩','2379':'瑞昱','2395':'研華','4938':'和碩',
-  '6505':'台塑化','2207':'和泰車','2301':'光寶科','3008':'大立光',
-};
-
-const WATCH = [
-  {s:'2330',n:'台積電'},{s:'2454',n:'聯發科'},
-  {s:'2308',n:'台達電'},{s:'2317',n:'鴻海'},
-  {s:'3711',n:'日月光'},{s:'2382',n:'廣達'},{s:'6669',n:'緯穎'},
-];
-const SECTOR = [
-  {s:'2368',n:'金像電'},{s:'6274',n:'台燿'},
-  {s:'3324',n:'雙鴻'},{s:'5289',n:'宜鼎'},
-  {s:'2059',n:'川湖'},{s:'2408',n:'南亞科'},{s:'2303',n:'聯電'},
-];
+const NAMES={'2330':'台積電','2317':'鴻海','2454':'聯發科','2308':'台達電','3711':'日月光投控','2382':'廣達','6669':'緯穎','3034':'聯詠','2303':'聯電','2368':'金像電','6274':'台燿','3324':'雙鴻','5289':'宜鼎','2059':'川湖','2408':'南亞科','2603':'長榮','2412':'中華電','2881':'富邦金','2882':'國泰金','2886':'兆豐金','2891':'中信金','1301':'台塑','1303':'南亞','2002':'中鋼','2357':'華碩','2379':'瑞昱','4938':'和碩','2301':'光寶科','3008':'大立光','2395':'研華','2207':'和泰車'};
+const WATCH=[{s:'2330',n:'台積電'},{s:'2454',n:'聯發科'},{s:'2308',n:'台達電'},{s:'2317',n:'鴻海'},{s:'3711',n:'日月光'},{s:'2382',n:'廣達'},{s:'6669',n:'緯穎'}];
+const SECTOR=[{s:'2368',n:'金像電'},{s:'6274',n:'台燿'},{s:'3324',n:'雙鴻'},{s:'5289',n:'宜鼎'},{s:'2059',n:'川湖'},{s:'2408',n:'南亞科'},{s:'2303',n:'聯電'}];
 
 let activeChart=null, activeTicker=null;
 
-// ── 時鐘 ─────────────────────────────────────────────────
 setInterval(()=>{
   const n=new Date();
-  document.getElementById('htime').textContent=
-    n.toLocaleDateString('zh-TW')+' '+n.toLocaleTimeString('zh-TW',{hour12:false});
+  document.getElementById('htime').textContent=n.toLocaleDateString('zh-TW')+' '+n.toLocaleTimeString('zh-TW',{hour12:false});
 },1000);
 
-// ── 格式化 ───────────────────────────────────────────────
-const fp = v=>v!=null?Number(v).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'--';
-const fpct = v=>v!=null?(v>0?'+':'')+Number(v).toFixed(2)+'%':'--';
-const fbig = n=>{
-  if(!n||isNaN(n)) return '--';
-  if(n>=1e12) return (n/1e12).toFixed(2)+'兆';
-  if(n>=1e8)  return (n/1e8).toFixed(1)+'億';
-  if(n>=1e4)  return (n/1e4).toFixed(0)+'萬';
-  return Number(n).toFixed(0);
-};
-const cc = v=>Number(v)>0?'up':Number(v)<0?'dn':'fl';
+const fp=v=>v!=null?Number(v).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'--';
+const fpct=v=>v!=null?(v>0?'+':'')+Number(v).toFixed(2)+'%':'--';
+const fbig=n=>{if(!n||isNaN(n))return '--';if(n>=1e12)return(n/1e12).toFixed(2)+'兆';if(n>=1e8)return(n/1e8).toFixed(1)+'億';if(n>=1e4)return(n/1e4).toFixed(0)+'萬';return Number(n).toFixed(0)};
+const cc=v=>Number(v)>0?'up':Number(v)<0?'dn':'fl';
 
-// ── 抓 stooq 資料（CSV，無 CORS 問題）────────────────────
-async function fetchStooq(code, days=90){
-  // stooq 格式：XXXX.TW
-  const sym = code.toUpperCase()+'.TW';
-  const to = new Date();
-  const from = new Date(); from.setDate(from.getDate()-days);
-  const fmt = d=>`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  const url = `https://stooq.com/q/d/l/?s=${sym}&d1=${fmt(from)}&d2=${fmt(to)}&i=d`;
+// 透過 Vercel serverless proxy 抓 Yahoo Finance
+async function fetchStock(code){
+  const sym=code.toUpperCase()+'.TW';
   try{
-    const proxy = 'https://corsproxy.io/?'+encodeURIComponent(url);
-    const r = await fetch(proxy);
-    const txt = await r.text();
-    if(!txt || txt.includes('No data') || txt.trim().length < 30) return null;
-    const lines = txt.trim().split('\n').filter(l=>l && !l.startsWith('Date'));
-    if(!lines.length) return null;
-    const rows = lines.map(l=>{
-      const [date,open,high,low,close,volume] = l.split(',');
-      return {date,open:+open,high:+high,low:+low,close:+close,volume:+volume};
-    }).filter(r=>r.close>0);
-    if(!rows.length) return null;
-    const last = rows[rows.length-1];
-    const prev = rows.length>1 ? rows[rows.length-2] : null;
-    const chgAmt = prev ? last.close-prev.close : 0;
-    const chgPct = prev ? (chgAmt/prev.close)*100 : 0;
-    const closes = rows.map(r=>r.close);
-    const high52 = Math.max(...rows.map(r=>r.high));
-    const low52  = Math.min(...rows.map(r=>r.low));
-    return {
-      price: last.close, prev: prev?.close,
-      chgAmt, chgPct,
-      open: last.open, high: last.high, low: last.low,
-      volume: last.volume,
-      high52, low52,
-      rows, closes,
-      dates: rows.map(r=>r.date),
+    const [chartRes, sumRes]=await Promise.all([
+      fetch(`/api/stock?sym=${sym}&type=chart`),
+      fetch(`/api/stock?sym=${sym}&type=summary`)
+    ]);
+    const chartData=await chartRes.json();
+    const sumData=await sumRes.json();
+    if(!chartData?.chart?.result?.[0]) return null;
+    const res=chartData.chart.result[0];
+    const meta=res.meta;
+    const closes=res.indicators.quote[0].close;
+    const ts=res.timestamp;
+    const price=meta.regularMarketPrice;
+    const prev=meta.previousClose||meta.chartPreviousClose;
+    const chgAmt=price-prev;
+    const chgPct=(chgAmt/prev)*100;
+    const sd=sumData?.quoteSummary?.result?.[0]?.summaryDetail||{};
+    const fd=sumData?.quoteSummary?.result?.[0]?.financialData||{};
+    const ks=sumData?.quoteSummary?.result?.[0]?.defaultKeyStatistics||{};
+    const ap=sumData?.quoteSummary?.result?.[0]?.assetProfile||{};
+    return{
+      name:meta.longName||meta.shortName||code,
+      price,prev,chgAmt,chgPct,
+      open:meta.regularMarketOpen,
+      high:meta.regularMarketDayHigh,
+      low:meta.regularMarketDayLow,
+      volume:meta.regularMarketVolume,
+      high52:sd.fiftyTwoWeekHigh?.raw,
+      low52:sd.fiftyTwoWeekLow?.raw,
+      pe:sd.trailingPE?.raw||sd.forwardPE?.raw,
+      pb:sd.priceToBook?.raw,
+      mktCap:sd.marketCap?.raw||ks.marketCap?.raw,
+      eps:ks.trailingEps?.raw,
+      gm:fd.grossMargins?.raw,
+      roe:fd.returnOnEquity?.raw,
+      sector:ap.sector,
+      industry:ap.industry,
+      closes,ts,
     };
-  }catch(e){ return null; }
+  }catch(e){return null;}
 }
 
-// ── Watchlist ─────────────────────────────────────────────
-async function renderList(items, elId){
-  const el = document.getElementById(elId);
-  const results = await Promise.all(items.map(it=>fetchStooq(it.s).then(d=>({...it,d}))));
+async function renderList(items,elId){
+  const el=document.getElementById(elId);
+  const results=await Promise.all(items.map(it=>fetchStock(it.s).then(d=>({...it,d}))));
   el.innerHTML='';
   for(const it of results){
     const d=it.d;
-    const price=d?.price;
-    const chgPct=d?.chgPct;
-    const cls=d?cc(chgPct):'na';
+    const cls=d?cc(d.chgPct):'na';
     const div=document.createElement('div');
     div.className='witem';
-    div.onclick=()=>{document.getElementById('tin').value=it.s; doSearch(it.s);};
-    div.innerHTML=`
-      <div class="wleft">
-        <div class="wticker">${it.s}</div>
-        <div class="wname">${it.n}</div>
-      </div>
-      <div class="wright">
-        <div class="wprice">${price?fp(price):'---'}</div>
-        <div class="wchg ${cls}">${d?fpct(chgPct):'--'}</div>
-      </div>`;
+    div.onclick=()=>{document.getElementById('tin').value=it.s;doSearch(it.s)};
+    div.innerHTML=`<div class="wleft"><div class="wticker">${it.s}</div><div class="wname">${it.n}</div></div><div class="wright"><div class="wprice">${d?fp(d.price):'---'}</div><div class="wchg ${cls}">${d?fpct(d.chgPct):'--'}</div></div>`;
     el.appendChild(div);
   }
 }
@@ -319,10 +286,7 @@ async function renderList(items, elId){
 async function refreshWatch(){
   document.getElementById('wpanel').innerHTML='<div class="lrow"><div class="spin"></div>更新中...</div>';
   document.getElementById('spanel').innerHTML='<div class="lrow"><div class="spin"></div>更新中...</div>';
-  await Promise.all([
-    renderList(WATCH,'wpanel'),
-    renderList(SECTOR,'spanel'),
-  ]);
+  await Promise.all([renderList(WATCH,'wpanel'),renderList(SECTOR,'spanel')]);
 }
 
 function swTab(tab,el){
@@ -332,239 +296,139 @@ function swTab(tab,el){
   document.getElementById('spanel').style.display=tab==='s'?'':'none';
 }
 
-// ── Chart ─────────────────────────────────────────────────
-function drawChart(closes, dates){
-  const cv=document.getElementById('cv'); if(!cv) return;
+function drawChart(closes,ts){
+  const cv=document.getElementById('cv');if(!cv)return;
   if(activeChart){activeChart.destroy();activeChart=null;}
-  const last=closes[closes.length-1], first=closes[0];
+  const valid=closes.map(c=>c??NaN);
+  const last=valid.filter(c=>!isNaN(c)).slice(-1)[0];
+  const first=valid.find(c=>!isNaN(c));
   const isUp=last>=first;
   const col=isUp?'#ef4444':'#10b981';
   const fill=isUp?'rgba(239,68,68,0.08)':'rgba(16,185,129,0.08)';
-  // show every ~15 days for label
-  const labels=dates.map((d,i)=>{
-    if(i%(Math.ceil(dates.length/6))===0) return d.slice(5);
-    return '';
+  const labels=ts.map((t,i)=>{
+    const d=new Date(t*1000);
+    const lbl=`${d.getMonth()+1}/${d.getDate()}`;
+    return i%(Math.ceil(ts.length/6))===0?lbl:'';
   });
   activeChart=new Chart(cv,{
     type:'line',
-    data:{labels,datasets:[{
-      data:closes,borderColor:col,backgroundColor:fill,
-      borderWidth:1.5,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4
-    }]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${fp(c.parsed.y)}`}}},
-      scales:{
-        x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#3d4d61',font:{size:11},maxRotation:0}},
-        y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#3d4d61',font:{size:11},callback:v=>fp(v)},position:'right'}
-      }
-    }
+    data:{labels,datasets:[{data:valid,borderColor:col,backgroundColor:fill,borderWidth:1.5,fill:true,tension:.35,pointRadius:0,pointHoverRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${fp(c.parsed.y)}`}}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#3d4d61',font:{size:11},maxRotation:0}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#3d4d61',font:{size:11},callback:v=>fp(v)},position:'right'}}}
   });
 }
 
-// ── AI 分析（Claude API）─────────────────────────────────
-async function getAI(code, name, price, chgPct, high52, low52){
-  const box=document.getElementById('aicontent'); if(!box) return;
-  box.innerHTML=`<div class="lrow"><div class="spin"></div>AI 搜尋最新資訊並分析中...</div>`;
-
+async function getAI(code,name,price,chgPct,high52,low52,pe,mktCap){
+  const box=document.getElementById('aicontent');if(!box)return;
+  box.innerHTML='<div class="lrow"><div class="spin"></div>AI 搜尋最新資訊並分析中...</div>';
   const today=new Date().toLocaleDateString('zh-TW');
-  const prompt=`今天是${today}。請用繁體中文分析台股 ${name}（${code}）。
-
-現有數據：現價 ${price}元、今日漲跌 ${chgPct}、近90天最高 ${high52}元、近90天最低 ${low52}元。
-
-請先搜尋「台股 ${name} ${code} 最新消息」以及「${name} 法人評級 目標價 2026」，然後提供：
-
-1. **現況評估**：目前股價走勢與基本面一句話評估
-2. **近期催化劑**：最新利多或利空消息
-3. **操作建議**：短線進場區間或觀望理由，含具體價位
-4. **主要風險**：最關鍵的下行風險
-5. **評級**：末尾給出「強力買進 / 買進 / 持有 / 減碼 / 賣出」
-
-總字數約150字，精簡有力，不要免責聲明。`;
-
+  const prompt=`今天是${today}。請用繁體中文分析台股 ${name}（${code}）。\n\n現有數據：現價 ${price}元、今日漲跌 ${chgPct}、52週高點 ${high52}元、52週低點 ${low52}元、本益比 ${pe}、市值 ${mktCap}。\n\n請先搜尋「台股 ${name} ${code} 最新消息 2026」以及「${name} 法人評級 目標價」，然後提供：\n1. **現況評估**：目前走勢與基本面一句話評估\n2. **近期催化劑**：最新利多或利空\n3. **操作建議**：具體進場價位或觀望理由\n4. **主要風險**：最關鍵的下行風險\n5. **評級**：末尾給出「強力買進 / 買進 / 持有 / 減碼 / 賣出」\n\n總字數約150字，精簡有力，不要免責聲明。`;
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:prompt}]
-      })
-    });
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();
     const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
     if(!text){box.innerHTML='<div class="errmsg">AI 分析暫時無法載入</div>';return;}
-
-    box.innerHTML=text
-      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>');
-
+    box.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>');
     const el=document.getElementById('ratings');
     if(el){
       let h='';
-      if(text.includes('強力買進'))      h='<span class="rbadge r-strong">⬆ 強力買進</span>';
-      else if(text.includes('買進'))     h='<span class="rbadge r-buy">↑ 買進</span>';
-      else if(text.includes('持有'))     h='<span class="rbadge r-hold">→ 持有</span>';
-      else if(text.includes('減碼'))     h='<span class="rbadge r-sell">↓ 減碼</span>';
-      else if(text.includes('賣出'))     h='<span class="rbadge r-sell">⬇ 賣出</span>';
-      else                               h='<span class="rbadge r-watch">◎ 觀察</span>';
+      if(text.includes('強力買進'))h='<span class="rbadge r-strong">⬆ 強力買進</span>';
+      else if(text.includes('買進'))h='<span class="rbadge r-buy">↑ 買進</span>';
+      else if(text.includes('持有'))h='<span class="rbadge r-hold">→ 持有</span>';
+      else if(text.includes('減碼'))h='<span class="rbadge r-sell">↓ 減碼</span>';
+      else if(text.includes('賣出'))h='<span class="rbadge r-sell">⬇ 賣出</span>';
+      else h='<span class="rbadge r-watch">◎ 觀察</span>';
       el.innerHTML=h;
     }
-  }catch{
-    box.innerHTML='<div class="errmsg">連線失敗，請確認網路後重試</div>';
-  }
+  }catch{box.innerHTML='<div class="errmsg">連線失敗，請確認網路後重試</div>';}
 }
 
-// ── 操作策略（AI 生成）────────────────────────────────────
-async function getStrategy(code, name, price){
-  const el=document.getElementById('stratbox'); if(!el) return;
+async function getStrategy(code,name,price){
+  const el=document.getElementById('stratbox');if(!el)return;
   el.innerHTML='<div class="lrow"><div class="spin"></div>生成操作策略中...</div>';
-  const prompt=`針對台股 ${name}（${code}），現價 ${price}元，用繁體中文給出三種操作策略。
-
-只回傳 JSON 陣列，不要任何其他文字：
-[
-  {"name":"積極進場","risk":"high","entry":"具體價位","target":"具體目標價","stop":"具體止損價","note":"一句話說明"},
-  {"name":"區間佈局","risk":"mid","entry":"具體價位","target":"具體目標價","stop":"具體止損價","note":"一句話說明"},
-  {"name":"定期定額","risk":"low","entry":"分批進場","target":"長線目標","stop":"跌破XX考慮停損","note":"一句話說明"}
-]`;
+  const prompt=`針對台股 ${name}（${code}），現價 ${price}元，用繁體中文給三種操作策略。只回傳 JSON 陣列，不要任何其他文字：\n[{"name":"積極進場","risk":"high","entry":"具體價位","target":"目標價","stop":"止損價","note":"一句話"},{"name":"區間佈局","risk":"mid","entry":"價位","target":"目標","stop":"止損","note":"一句話"},{"name":"定期定額","risk":"low","entry":"分批","target":"長線目標","stop":"停損考量","note":"一句話"}]`;
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:800,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();
     const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    const clean=raw.replace(/```json|```/g,'').trim();
-    const strats=JSON.parse(clean);
+    const strats=JSON.parse(raw.replace(/```json|```/g,'').trim());
     const rc={high:'#ef4444',mid:'#f59e0b',low:'#10b981'};
     const rw={high:'78%',mid:'44%',low:'18%'};
     const rl={high:'高風險',mid:'中風險',low:'低風險'};
     const rk={high:'r-sell',mid:'r-hold',low:'r-buy'};
-    el.innerHTML=strats.map((s,i)=>`
-      <div class="strat-card${i===1?' rec':''}">
-        <div class="strat-top">
-          <div>
-            <div class="strat-name">${s.name}${i===1?' <span style="font-size:10px;color:var(--blue2);margin-left:5px">★ 建議</span>':''}</div>
-            <div class="strat-sub">進場 ${s.entry} · 目標 ${s.target} · 止損 ${s.stop}</div>
-          </div>
-          <span class="rbadge ${rk[s.risk]||'r-watch'}">${rl[s.risk]||s.risk}</span>
-        </div>
-        <div class="risk-bar"><div class="risk-fill" style="width:${rw[s.risk]||'50%'};background:${rc[s.risk]||'#8b5cf6'}"></div></div>
-        <div class="strat-note">${s.note}</div>
-      </div>`).join('');
-  }catch{
-    el.innerHTML='<div class="errmsg">策略生成失敗，請重試</div>';
-  }
+    el.innerHTML=strats.map((s,i)=>`<div class="strat-card${i===1?' rec':''}"><div class="strat-top"><div><div class="strat-name">${s.name}${i===1?' <span style="font-size:10px;color:var(--blue2);margin-left:5px">★ 建議</span>':''}</div><div class="strat-sub">進場 ${s.entry} · 目標 ${s.target} · 止損 ${s.stop}</div></div><span class="rbadge ${rk[s.risk]||'r-watch'}">${rl[s.risk]||s.risk}</span></div><div class="risk-bar"><div class="risk-fill" style="width:${rw[s.risk]||'50%'};background:${rc[s.risk]||'#8b5cf6'}"></div></div><div class="strat-note">${s.note}</div></div>`).join('');
+  }catch{el.innerHTML='<div class="errmsg">策略生成失敗，請重試</div>';}
 }
 
-// ── 主搜尋 ────────────────────────────────────────────────
 async function doSearch(overCode){
   const raw=(overCode||document.getElementById('tin').value).trim().replace(/\.TW$/i,'').toUpperCase();
-  if(!raw) return;
+  if(!raw)return;
   activeTicker=raw;
-
   const btn=document.getElementById('sbtn');
-  btn.disabled=true; btn.innerHTML='<div class="spin"></div> 分析中';
-  document.getElementById('display').innerHTML=
-    '<div class="lrow" style="padding:44px;justify-content:center"><div class="spin"></div> 抓取即時股價中...</div>';
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div> 分析中';
+  document.getElementById('display').innerHTML='<div class="lrow" style="padding:44px;justify-content:center"><div class="spin"></div> 抓取即時股價中...</div>';
 
-  const d=await fetchStooq(raw, 90);
-
-  btn.disabled=false; btn.innerHTML='<span>✦</span> AI 分析';
+  const d=await fetchStock(raw);
+  btn.disabled=false;btn.innerHTML='<span>✦</span> AI 分析';
 
   if(!d){
-    document.getElementById('display').innerHTML=
-      `<div class="errmsg" style="margin:20px">
-        找不到「${raw}」的資料。<br><br>
-        可能原因：<br>
-        ① 代號輸入錯誤（請只輸入數字，例：2330）<br>
-        ② 該股今日無交易或剛上市<br>
-        ③ 網路連線問題，請稍後再試
-      </div>`;
+    document.getElementById('display').innerHTML=`<div class="errmsg" style="margin:20px">找不到「${raw}」的資料。<br><br>可能原因：<br>① 代號輸入錯誤（請只輸入數字，例：2330）<br>② 該股今日無交易或剛上市<br>③ 請確認已部署到 Vercel（本地端開啟無法抓取資料）</div>`;
     return;
   }
 
-  const name=NAMES[raw]||raw;
   const cls=cc(d.chgPct);
   const range=d.high52&&d.low52?Math.max(2,Math.min(98,(d.price-d.low52)/(d.high52-d.low52)*100)):50;
 
   document.getElementById('display').innerHTML=`
     <div style="margin-bottom:18px">
       <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-        <div class="sname">${name}</div>
-        <div class="sticker">${raw}</div>
+        <div class="sname">${d.name}</div><div class="sticker">${raw}</div>
+        ${d.sector?`<div style="font-size:11px;color:var(--text3)">${d.sector}${d.industry?' · '+d.industry:''}</div>`:''}
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;flex-wrap:wrap">
         <div class="price ${cls}">${fp(d.price)}</div>
         <div class="cbadge ${cls}">${d.chgAmt>=0?'+':''}${fp(d.chgAmt)} (${fpct(d.chgPct)})</div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">資料來源：Stooq · 最後更新：${d.dates[d.dates.length-1]}</div>
     </div>
-
     <div class="mgrid">
       <div class="mbox"><div class="mlbl">開盤</div><div class="mval">${fp(d.open)}</div></div>
       <div class="mbox"><div class="mlbl">今日高</div><div class="mval up">${fp(d.high)}</div></div>
       <div class="mbox"><div class="mlbl">今日低</div><div class="mval dn">${fp(d.low)}</div></div>
-      <div class="mbox"><div class="mlbl">90天高</div><div class="mval">${fp(d.high52)}</div></div>
-      <div class="mbox"><div class="mlbl">90天低</div><div class="mval">${fp(d.low52)}</div></div>
-      <div class="mbox"><div class="mlbl">成交量</div><div class="mval">${fbig(d.volume)}</div></div>
+      <div class="mbox"><div class="mlbl">52週高</div><div class="mval">${d.high52?fp(d.high52):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">52週低</div><div class="mval">${d.low52?fp(d.low52):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">本益比</div><div class="mval">${d.pe?d.pe.toFixed(1):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">市值</div><div class="mval">${fbig(d.mktCap)}</div></div>
+      <div class="mbox"><div class="mlbl">EPS</div><div class="mval">${d.eps?d.eps.toFixed(2):'--'}</div></div>
+      <div class="mbox"><div class="mlbl">毛利率</div><div class="mval">${d.gm?(d.gm*100).toFixed(1)+'%':'--'}</div></div>
     </div>
-
     <div style="margin-bottom:18px">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:5px">
-        <span>90日低 ${fp(d.low52)}</span>
-        <span>目前位置 ${range.toFixed(0)}%</span>
-        <span>90日高 ${fp(d.high52)}</span>
+        <span>52W 低 ${d.low52?fp(d.low52):'--'}</span><span>目前位置 ${range.toFixed(0)}%</span><span>52W 高 ${d.high52?fp(d.high52):'--'}</span>
       </div>
       <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
         <div style="height:100%;width:${range}%;background:${cls==='up'?'var(--red2)':'var(--green2)'};border-radius:2px;transition:width .5s"></div>
       </div>
     </div>
-
     <div class="ct">近三個月走勢</div>
     <div class="chart-wrap"><canvas id="cv"></canvas></div>
-
     <div class="aibox">
-      <div class="aihead">
-        <div class="aiicon">✦</div>
-        <div class="ailabel">Claude AI 即時分析（含網路搜尋）</div>
-      </div>
-      <div class="aicontent" id="aicontent">
-        <div class="lrow"><div class="spin"></div>搜尋最新資訊並分析中...</div>
-      </div>
+      <div class="aihead"><div class="aiicon">✦</div><div class="ailabel">Claude AI 即時分析（含網路搜尋）</div></div>
+      <div class="aicontent" id="aicontent"><div class="lrow"><div class="spin"></div>分析中...</div></div>
       <div class="ratings" id="ratings"></div>
     </div>
-
     <div class="ct" style="margin-top:4px">AI 操作策略建議</div>
     <div id="stratbox" class="strat-grid"></div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px">⚠ 以上分析僅供參考，不構成投資建議</div>`;
 
-    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px">
-      ⚠ 以上分析僅供參考，不構成投資建議
-    </div>`;
-
-  drawChart(d.closes, d.dates);
-  getAI(raw, name, fp(d.price), fpct(d.chgPct), fp(d.high52), fp(d.low52));
-  getStrategy(raw, name, fp(d.price));
+  drawChart(d.closes,d.ts);
+  getAI(raw,d.name,fp(d.price),fpct(d.chgPct),d.high52?fp(d.high52):'N/A',d.low52?fp(d.low52):'N/A',d.pe?d.pe.toFixed(1):'N/A',fbig(d.mktCap));
+  getStrategy(raw,d.name,fp(d.price));
 }
 
-function qp(s){ document.getElementById('tin').value=s; doSearch(s); }
+function qp(s){document.getElementById('tin').value=s;doSearch(s);}
 document.getElementById('tin').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
 
-// 初始化
 refreshWatch();
-setInterval(()=>{
-  const h=new Date().getHours();
-  if(h>=9&&h<14){
-    refreshWatch();
-    if(activeTicker) doSearch(activeTicker);
-  }
-},180000);
+setInterval(()=>{const h=new Date().getHours();if(h>=9&&h<14){refreshWatch();if(activeTicker)doSearch(activeTicker);}},180000);
 </script>
 </body>
 </html>
